@@ -26,7 +26,7 @@ app.post("/api/pix/create", async (req, res) => {
       shipping,
       metadata,
       externalRef,
-      amount
+      amount,
     } = req.body;
 
     const response = await fetch(
@@ -70,11 +70,10 @@ app.post("/api/webhook/blackcat", (req, res) => {
 
   console.log("📩 Webhook recebido:", event);
 
-  // Aqui no futuro:
-  // - validar pagamento
-  // - salvar no banco
+  // Próximo passo:
+  // - validar status = PAID
+  // - atualizar pedido no Supabase
   // - disparar WhatsApp
-  // - marcar pedido como PAGO
 
   res.status(200).json({ received: true });
 });
