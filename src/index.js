@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import axios from "axios";
+import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -9,85 +9,78 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/* =========================
-   ROTA TESTE
-========================= */
+// =====================
+// HEALTH CHECK
+// =====================
 app.get("/", (req, res) => {
   res.send("Folly Backend ONLINE 🚀");
 });
 
-/* =========================
-   CRIAR VENDA PIX (BLACKCAT)
-========================= */
-app.post("/create-sale", async (req, res) => {
+// =====================
+// CRIAR VENDA PIX - BLACKCAT
+// =====================
+app.post("/api/pix/create", async (req, res) => {
   try {
     const {
       items,
       customer,
-      amount,
+      shipping,
+      metadata,
       externalRef,
-      shipping
+      amount
     } = req.body;
 
-    const response = await axios.post(
-      "https://api.blackcatpagamentos.online/api/sales/create-sale",
+    const response = await fetch(
+      `${process.env.BLACKCAT_API_URL}/sales/create-sale`,
       {
-        amount,
-        currency: "BRL",
-        paymentMethod: "pix",
-        items,
-        customer,
-        shipping,
-        pix: {
-          expiresInDays: 1
-        },
-        externalRef,
-        postbackUrl: `${process.env.BACKEND_URL}/webhook/blackcat`
-      },
-      {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": process.env.BLACKCAT_API_KEY
-        }
+          "X-API-Key": process.env.BLACKCAT_API_KEY,
+        },
+        body: JSON.stringify({
+          amount,
+          paymentMethod: "pix",
+          items,
+          customer,
+          shipping,
+          metadata,
+          externalRef,
+        }),
       }
     );
 
-    return res.status(201).json(response.data);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(400).json(data);
+    }
+
+    return res.status(201).json(data);
   } catch (error) {
-    console.error("❌ Erro ao criar venda:", error.response?.data || error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Erro ao criar pagamento"
-    });
+    console.error("Erro ao criar PIX:", error);
+    return res.status(500).json({ error: "Erro interno no servidor" });
   }
 });
 
-/* =========================
-   WEBHOOK BLACKCAT
-========================= */
-app.post("/webhook/blackcat", async (req, res) => {
-  console.log("🔔 Webhook BlackCat recebido:");
-  console.log(req.body);
+// =====================
+// WEBHOOK BLACKCAT
+// =====================
+app.post("/api/webhook/blackcat", (req, res) => {
+  const event = req.body;
 
-  const { status, transactionId, externalRef } = req.body;
+  console.log("📩 Webhook recebido:", event);
 
-  if (status === "PAID") {
-    console.log("✅ PAGAMENTO CONFIRMADO");
-    console.log("🧾 Pedido:", externalRef);
-    console.log("💳 Transação:", transactionId);
+  // Aqui no futuro:
+  // - validar pagamento
+  // - salvar no banco
+  // - disparar WhatsApp
+  // - marcar pedido como PAGO
 
-    // AQUI DEPOIS:
-    // - atualizar pedido no Supabase
-    // - marcar status = paid
-    // - disparar WhatsApp
-  }
-
-  res.sendStatus(200);
+  res.status(200).json({ received: true });
 });
 
-/* =========================
-   START SERVER
-========================= */
+// =====================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
